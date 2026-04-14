@@ -17,7 +17,8 @@ import {
   Info,
   ChevronRight,
   Sparkles,
-  MessageSquareQuote
+  MessageSquareQuote,
+  Key
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { KW_DATABASE, Keyword } from './lib/keywords';
@@ -98,6 +99,7 @@ function scoreKeywords(text: string, apiSuggestions: string[] = []): ScoredKeywo
 
 // --- Components ---
 export default function App() {
+  const [apiKey, setApiKey] = useState(() => localStorage.getItem('gemini_api_key') || '');
   const [content, setContent] = useState('');
   const [kwCount, setKwCount] = useState(50);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -107,6 +109,10 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<'table' | 'cat'>('table');
   const [toast, setToast] = useState<{ message: string; type: 'ok' | 'warn' } | null>(null);
   const [analysisStep, setAnalysisStep] = useState(0);
+
+  useEffect(() => {
+    localStorage.setItem('gemini_api_key', apiKey);
+  }, [apiKey]);
 
   const showToast = (message: string, type: 'ok' | 'warn' = 'ok') => {
     setToast({ message, type });
@@ -131,7 +137,7 @@ export default function App() {
     setAnalysisStep(3);
     
     // Real AI call for suggestions
-    const aiSuggs = await getAISuggestions(content);
+    const aiSuggs = await getAISuggestions(content, apiKey);
     setAnalysisStep(4);
     await new Promise(r => setTimeout(r, 600));
     setAnalysisStep(5);
@@ -143,7 +149,7 @@ export default function App() {
     // Automatically generate description using AI suggestions directly
     // This ensures keywords are highly relevant to the content and represent high search volume
     setIsGeneratingDesc(true);
-    const desc = await generateDescription(content, aiSuggs);
+    const desc = await generateDescription(content, aiSuggs, apiKey);
     setAiDescription(desc);
     setIsGeneratingDesc(false);
 
@@ -154,7 +160,8 @@ export default function App() {
   const handleGenerateDescription = async () => {
     if (!content || !results) return;
     setIsGeneratingDesc(true);
-    const desc = await generateDescription(content, results.map(r => r.kw));
+    // Use AI suggestions (from tagsText) or top results for manual generation
+    const desc = await generateDescription(content, results.slice(0, 10).map(r => r.kw), apiKey);
     setAiDescription(desc);
     setIsGeneratingDesc(false);
   };
@@ -223,6 +230,34 @@ export default function App() {
         <main className="grid grid-cols-1 lg:grid-cols-[400px_1fr] gap-8 items-start">
           {/* Left Column: Input */}
           <section className="space-y-6">
+            {/* API Key Config */}
+            <div className="bg-white/5 border border-white/10 rounded-3xl overflow-hidden backdrop-blur-xl">
+              <div className="px-6 py-4 border-b border-white/10 flex items-center gap-3">
+                <div className="p-2 bg-emerald-500/20 rounded-lg">
+                  <Key className="w-4 h-4 text-emerald-400" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold">Cấu hình API</h2>
+                  <p className="text-base text-slate-500">Dành cho khi deploy (Vercel, Netlify...)</p>
+                </div>
+              </div>
+              <div className="p-6">
+                <div className="space-y-2">
+                  <label className="text-base font-bold text-slate-400">Gemini API Key</label>
+                  <input
+                    type="password"
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all placeholder:text-slate-600"
+                    placeholder="Nhập API Key của bạn (Bắt đầu bằng AIza...)"
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                  />
+                  <p className="text-sm text-slate-500 mt-2">
+                    Key được lưu cục bộ trên trình duyệt của bạn. Lấy key tại <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-indigo-400 hover:underline">Google AI Studio</a>.
+                  </p>
+                </div>
+              </div>
+            </div>
+
             <div className="bg-white/5 border border-white/10 rounded-3xl overflow-hidden backdrop-blur-xl">
               <div className="px-6 py-4 border-b border-white/10 flex items-center gap-3">
                 <div className="p-2 bg-indigo-500/20 rounded-lg">

@@ -1,8 +1,18 @@
 import { GoogleGenAI } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+const getAIClient = (userApiKey?: string) => {
+  let envKey = "";
+  try {
+    envKey = process.env.GEMINI_API_KEY || "";
+  } catch (e) {
+    // Ignore if process is not defined (e.g., on Vercel without env vars)
+  }
+  const key = userApiKey || envKey;
+  return new GoogleGenAI({ apiKey: key });
+};
 
-export async function generateDescription(content: string, keywords: string[]) {
+export async function generateDescription(content: string, keywords: string[], apiKey?: string) {
+  const ai = getAIClient(apiKey);
   const prompt = `
 Hãy đóng vai một chuyên gia SEO YouTube và chuyên gia tâm lý giáo dục. 
 Nhiệm vụ của bạn là viết một đoạn mô tả video YouTube cho nội dung bài viết dưới đây.
@@ -46,13 +56,17 @@ Lưu ý khác:
       contents: prompt,
     });
     return response.text || "Không thể tạo mô tả lúc này.";
-  } catch (error) {
+  } catch (error: any) {
     console.error("Gemini Error:", error);
-    return "Đã xảy ra lỗi khi kết nối với AI.";
+    if (error?.message?.includes("API key not valid") || error?.status === 401 || error?.status === 403) {
+      return "Lỗi API Key. Vui lòng kiểm tra lại Gemini API Key của bạn trong phần Cấu hình API.";
+    }
+    return "Đã xảy ra lỗi khi kết nối với AI. Vui lòng kiểm tra API Key.";
   }
 }
 
-export async function getAISuggestions(content: string) {
+export async function getAISuggestions(content: string, apiKey?: string) {
+  const ai = getAIClient(apiKey);
   const prompt = `
 Dựa trên nội dung bài viết dưới đây, hãy gợi ý 10 từ khóa YouTube (không dấu #) mà phụ huynh Việt Nam thường tìm kiếm liên quan đến chủ đề này.
 
